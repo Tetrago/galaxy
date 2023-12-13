@@ -84,7 +84,7 @@ function init() {
 function animate() {
     requestAnimationFrame(animate);
 
-    if(!isNaN(params.planet.period) && params.planet.period !== 0) {
+    if(params.planet.period !== 0) {
         body.rotateY(1 / params.planet.period / 60);
     }
 
