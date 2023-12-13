@@ -31,6 +31,7 @@ export default function planet(mesh, noise) {
     const { radius = 8, resolution = 64 } = mesh;
 
     const vertices = [];
+    const indices = [];
 
     const faces = [
         new THREE.Vector3(0, 1, 0),
@@ -41,38 +42,37 @@ export default function planet(mesh, noise) {
         new THREE.Vector3(0, 0, -1)
     ];
 
+    let i = 0;
     for(const up of faces) {
         const a = new THREE.Vector3(up.z, up.x, up.y);
         const b = up.clone().cross(a).normalize();
 
-        const point = (x, y) => {
-            const p = up.clone().add(x).add(y).normalize();
-            const n = p.clone().multiplyScalar(evaluateNoise(noise3D, p, noise));
+        for(let x = 0; x < resolution + 1; ++x) {
+            for(let y = 0; y < resolution + 1; ++y) {
+                const p = up.clone().add(a.clone().negate().add(a.clone().multiplyScalar(x / resolution * 2))).add(b.clone().negate().add(b.clone().multiplyScalar(y / resolution * 2))).normalize();
+                const n = p.clone().multiplyScalar(evaluateNoise(noise3D, p, noise));
 
-            p.multiplyScalar(radius).add(n);
-            vertices.push(p.x, p.y, p.z);
-        }
+                p.multiplyScalar(radius).add(n);
+                vertices.push(p.x, p.y, p.z);
 
-        for(let x = -resolution; x < resolution; ++x) {
-            for(let y = -resolution; y < resolution; ++y) {
-                const x1 = a.clone().multiplyScalar(x / resolution);
-                const y1 = b.clone().multiplyScalar(y / resolution);
-                const x2 = a.clone().multiplyScalar((x + 1) / resolution);
-                const y2 = b.clone().multiplyScalar((y + 1) / resolution);
+                if(x < resolution && y < resolution) {
+                    indices.push(i);
+                    indices.push(i + resolution + 1);
+                    indices.push(i + 1);
 
-                point(x1, y1);
-                point(x2, y2);
-                point(x1, y2);
+                    indices.push(i + 1);
+                    indices.push(i + resolution + 1);
+                    indices.push(i + resolution + 2);
+                }
 
-                point(x1, y1);
-                point(x2, y1);
-                point(x2, y2);
+                ++i;
             }
         }
     }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(vertices), 3));
+    geometry.setIndex(indices);
     geometry.computeVertexNormals();
     const material = new THREE.MeshLambertMaterial();
         
