@@ -1,8 +1,39 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import Planet from "./planet.js";
+import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+import cryptoRandomString from "crypto-random-string";
+import planet from "./planet.js";
 
-let scene, camera, renderer, controls, planet;
+let scene, camera, renderer, controls, body;
+
+let params = {
+    mesh: {
+        radius: 8,
+        resolution: 64
+    },
+    noise: {
+        seed: cryptoRandomString({ length: 20 }),
+        strength: 0.6,
+        roughness: 2,
+        persistence: 0.3,
+        lacunarity: 2,
+        octaves: 5
+    }
+};
+
+function generateBody() {
+    scene.remove(body);
+    body = planet(params.mesh, params.noise);
+    scene.add(body);
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.render(scene, camera);
+}
 
 function init() {
     scene = new THREE.Scene();
@@ -12,16 +43,35 @@ function init() {
     document.body.append(renderer.domElement);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(5, 4, 5);
+    camera.position.set(10, 8, 10);
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.update();
     controls.enablePan = false;
 
-    scene.add(new THREE.AmbientLight(0x404040));
+    const light = new THREE.DirectionalLight(0xffffff, 0.5);
+    light.position.set(10, 10, 10);
+    scene.add(light);
 
-    planet = new Planet(5, 50);
-    scene.add(planet.build());
+    generateBody();
+
+    const gui = new GUI();
+
+    const mesh = gui.addFolder("Mesh");
+    mesh.add(params.mesh, "radius").name("Radius").onChange(generateBody);
+    mesh.add(params.mesh, "resolution").name("Resolution").onChange(generateBody);
+    mesh.open();
+
+    const noise = gui.addFolder("Noise");
+    noise.add(params.noise, "seed").name("Seed").onChange(generateBody);
+    noise.add(params.noise, "strength").name("Strength").onChange(generateBody);
+    noise.add(params.noise, "roughness").name("Roughness").onChange(generateBody);
+    noise.add(params.noise, "persistence").name("Persistence").onChange(generateBody);
+    noise.add(params.noise, "lacunarity").name("Lacunarity").onChange(generateBody);
+    noise.add(params.noise, "octaves").name("Octaves").onChange(generateBody);
+    noise.open();
+
+    window.addEventListener("resize", onWindowResize);
 }
 
 function animate() {

@@ -1,67 +1,80 @@
+import { createNoise3D } from "simplex-noise";
+import alea from "alea";
 import * as THREE from "three";
 
-export default class Planet {
-    constructor(radius, resolution) {
-        this.radius = radius;
-        this.resolution = resolution;
+function evaluateNoise(noise, point, {
+    strength,
+    roughness,
+    persistence,
+    lacunarity,
+    octaves
+}) {
+    let value = 0;
+    let frequency = lacunarity;
+    let ampltude = 1;
+
+    for(let i = 0; i < octaves; ++i) {
+        const p = point.clone().multiplyScalar(frequency);
+        value += (noise(p.x, p.y, p.z) + 1) * 0.5 * ampltude;
+
+        frequency *= roughness;
+        ampltude *= persistence;
     }
 
-    build() {
-        const vertices = [];
-        const colors = [];
+    return value * strength;
+}
 
-        const a = new THREE.Vector3(0, 1, 0);
-        const b = new THREE.Vector3(a.z, a.x, a.y);
-        const c = a.clone().cross(b).normalize();
+export default function planet(mesh, noise) {
+    const { seed = 'seed' } = noise;
+    const noise3D = createNoise3D(alea(seed));
 
-        const faces = [
-            [a, c, b.clone().negate()],
-            [a, b, c],
-            [c, a, b],
-            [c, b, a.clone().negate()],
-            [b, c, a],
-            [b, a, c.clone().negate()]
-        ];
+    const { radius = 8, resolution = 64 } = mesh;
 
-        const add = (vec) => {
-            vec = vec.normalize().multiplyScalar(this.radius);
-            vertices.push(vec.x, vec.y, vec.z);
+    const vertices = [];
+
+    const faces = [
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(0, -1, 0),
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(-1, 0, 0),
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(0, 0, -1)
+    ];
+
+    for(const up of faces) {
+        const a = new THREE.Vector3(up.z, up.x, up.y);
+        const b = up.clone().cross(a).normalize();
+
+        const point = (x, y) => {
+            const p = up.clone().add(x).add(y).normalize();
+            const n = p.clone().multiplyScalar(evaluateNoise(noise3D, p, noise));
+
+            p.multiplyScalar(radius).add(n);
+            vertices.push(p.x, p.y, p.z);
         }
 
-        for(const [xv, yv, zv] of faces) {
-            const point = (x, y) => add(zv.clone().add(x).add(y));
+        for(let x = -resolution; x < resolution; ++x) {
+            for(let y = -resolution; y < resolution; ++y) {
+                const x1 = a.clone().multiplyScalar(x / resolution);
+                const y1 = b.clone().multiplyScalar(y / resolution);
+                const x2 = a.clone().multiplyScalar((x + 1) / resolution);
+                const y2 = b.clone().multiplyScalar((y + 1) / resolution);
 
-            for(let x = -this.resolution; x < this.resolution; ++x) {
-                for(let y = -this.resolution; y < this.resolution; ++y) {
-                    const x1 = xv.clone().multiplyScalar(x / this.resolution);
-                    const y1 = yv.clone().multiplyScalar(y / this.resolution);
-                    const x2 = xv.clone().multiplyScalar((x + 1) / this.resolution);
-                    const y2 = yv.clone().multiplyScalar((y + 1) / this.resolution);
+                point(x1, y1);
+                point(x2, y2);
+                point(x1, y2);
 
-                    point(x1, y1);
-                    point(x1, y2);
-                    point(x2, y2);
-
-                    point(x1, y1);
-                    point(x2, y2);
-                    point(x2, y1);
-
-                    colors.push(Math.random(1), Math.random(1), Math.random(1));
-                    colors.push(Math.random(1), Math.random(1), Math.random(1));
-                    colors.push(Math.random(1), Math.random(1), Math.random(1));
-
-                    colors.push(Math.random(1), Math.random(1), Math.random(1));
-                    colors.push(Math.random(1), Math.random(1), Math.random(1));
-                    colors.push(Math.random(1), Math.random(1), Math.random(1));
-                }
+                point(x1, y1);
+                point(x2, y1);
+                point(x2, y2);
             }
         }
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(vertices), 3));
-        geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colors), 3));
-        const material = new THREE.MeshStandardMaterial({ vertexColors: true });
-        
-        return new THREE.Mesh(geometry, material);
     }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(vertices), 3));
+    geometry.computeVertexNormals();
+    const material = new THREE.MeshLambertMaterial();
+        
+    return new THREE.Mesh(geometry, material);
 };
