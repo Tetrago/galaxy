@@ -7,6 +7,9 @@ import planet from "./planet.js";
 let scene, camera, renderer, controls, body;
 
 let params = {
+    planet: {
+        period: 10
+    },
     mesh: {
         radius: 8,
         resolution: 64
@@ -57,6 +60,10 @@ function init() {
 
     const gui = new GUI();
 
+    const pl = gui.addFolder("Planet");
+    pl.add(params.planet, "period").name("Period (s/rot)");
+    pl.open();
+
     const mesh = gui.addFolder("Mesh");
     mesh.add(params.mesh, "radius").name("Radius").onChange(generateBody);
     mesh.add(params.mesh, "resolution").name("Resolution").onChange(generateBody);
@@ -76,6 +83,9 @@ function init() {
 
 function animate() {
     requestAnimationFrame(animate);
+
+    body.rotateY(1 / params.planet.period / 60);
+
     renderer.render(scene, camera);
 }
 
